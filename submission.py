@@ -119,9 +119,41 @@ class MiniMaxMovePlayer(AbstractMovePlayer):
     def get_move(self, board, time_limit) -> Move:
         optional_moves_score = {}
 
+            new_board, score = miniMaxAux(m, board)
+            optional_moves_score[m] = score
+        return max(optional_moves_score, key=optional_moves_score.get)
         # eTODO: erase the following line and implement this function.
 
-        raise NotImplementedError
+
+
+    def minimaxMaxAux(self, board, time):
+        optional_moves = {}
+        for m in Move:
+            new_board, done, score = commands[m](board)
+            if done:
+                to_ret = {'board':new_board, 'is_done':done, 'score':score}
+                return to_ret
+            optional_moves[m] = minimaxMinAux(new_board)
+        scores = [entry['score'] for entry in optional_moves]
+        max_key = max(scores, key=scores.get)
+        return optional_moves[max_key]
+
+
+    def minimaxMinAux(self, board):
+        optional_index = {}
+        is_done = True
+        for i in range(len(board)):
+            for j in range(len(board[0])):
+                if board[i][j] == 0:
+                    board[i][j] = 2
+                    is_done = False
+                    optional_index[i* (len(board[0]) )+j] = minimaxMaxAux(board)
+                    board[i][j] = 0
+        if is_done:
+            return board, True, -1
+        scores = [entry['score'] for entry in optional_index]
+        max_key = max(scores, key=scores.get)
+        return optional_index[max_key]
 
     #def minimaxPlayerAux(self, board):
 
