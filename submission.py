@@ -1,4 +1,4 @@
-import constants
+import constants as c
 import logic
 import random
 from AbstractPlayers import *
@@ -39,11 +39,11 @@ class RandomIndexPlayer(AbstractIndexPlayer):
     put 2 randomly.
     """
     def get_indices(self, board, value, time_limit) -> (int, int):
-        a = random.randint(0, len(board) - 1)
-        b = random.randint(0, len(board) - 1)
+        a = random.randint(0, c.GRID_LEN - 1)
+        b = random.randint(0, c.GRID_LEN - 1)
         while board[a][b] != 0:
-            a = random.randint(0, len(board) - 1)
-            b = random.randint(0, len(board) - 1)
+            a = random.randint(0, c.GRID_LEN - 1)
+            b = random.randint(0, c.GRID_LEN - 1)
         return a, b
 
 
@@ -53,6 +53,7 @@ class ImprovedGreedyMovePlayer(AbstractMovePlayer):
     implement get_move function with greedy move that looks only one step ahead with heuristic.
     (you can add helper functions as you want).
     """
+
     def __init__(self):
         AbstractMovePlayer.__init__(self)
 
@@ -74,8 +75,8 @@ class ImprovedGreedyMovePlayer(AbstractMovePlayer):
     # returns the number of free slots in the board
     def getFreeSlotsNum(self, board):
         free_slots = 0
-        for i in range(len(board)):
-            for j in range(len(board[0])):
+        for i in range(c.GRID_LEN):
+            for j in range(c.GRID_LEN):
                 if board[i][j] == 0:
                     free_slots += 1
         return free_slots
@@ -85,18 +86,18 @@ class ImprovedGreedyMovePlayer(AbstractMovePlayer):
     # for all moves.
     def getMatchingNeighbors(self, board):
         neighbors = 0
-        for i in range(len(board)):
-            for j in range(len(board[0])):
+        for i in range(c.GRID_LEN):
+            for j in range(c.GRID_LEN):
                 if (j-1) >= 0:
                     if board[i][j] == board[i][j-1]:
                         neighbors += 1
                 if (i-1) >= 0:
                     if board[i][j] == board[i-1][j]:
                         neighbors += 1
-                if (i+1) < len(board):
+                if (i+1) < c.GRID_LEN:
                     if board[i][j] == board[i+1][j]:
                         neighbors += 1
-                if (j+1) < len(board[0]):
+                if (j+1) < c.GRID_LEN:
                     if board[i][j] == board[i][j+1]:
                         neighbors += 1
         return neighbors
@@ -114,50 +115,72 @@ class MiniMaxMovePlayer(AbstractMovePlayer):
         AbstractMovePlayer.__init__(self)
         self.board = None
         self.score = 0
+        self.move_br = 4
         # TODO: add here if needed
 
-    def get_move(self, board, time_limit) -> Move:
-        optional_moves_score = {}
+    def availableIndices(self, board):
+        available_indices = []
+        for i in range(c.GRID_LEN):
+            for j in range(c.GRID_LEN):
+                if board[i][j] == 0:
+                    available_indices.append((i, j))
+        return available_indices
 
-            new_board, score = miniMaxAux(m, board)
-            optional_moves_score[m] = score
-        return max(optional_moves_score, key=optional_moves_score.get)
-        # eTODO: erase the following line and implement this function.
-
-
-
-    def minimaxMaxAux(self, board, time):
-        optional_moves = {}
+    def minimaxMovePlayerAux(self, board, depth):
+        max_move, max_score = None, None
         for m in Move:
             new_board, done, score = commands[m](board)
-            if done:
-                to_ret = {'board':new_board, 'is_done':done, 'score':score}
-                return to_ret
-            optional_moves[m] = minimaxMinAux(new_board)
-        scores = [entry['score'] for entry in optional_moves]
-        max_key = max(scores, key=scores.get)
-        return optional_moves[max_key]
+            if not done:
+                continue
+            if depth == 0:
+                if max_move is None and max_score is None:
+                    max_move, max_score = m, score
+                else:
+                    max_move, max_score = (m, score) if score > max_score else (max_move, max_score)
+            else:
+                _, temp_score = self.minimaxIndexPlayerAux(board, score, depth - 1)
+                if max_move is None and max_score is None:
+                    max_move, max_score = m, temp_score
+                else:
+                    max_move, max_score = (m, temp_score) if temp_score > max_score else (max_move, max_score)
+        return max_move, max_score
+
+    def minimaxIndexPlayerAux(self, board, score, depth):
+        min_idx, min_score = None, None
+        for i, j in self.availableIndices(board):
+            board[i][j] = 2
+            score += 2
+            if depth == 0:
+                if min_idx is None and min_score is None:
+                    min_idx, min_score = (i, j), score
+                else:
+                    min_idx, min_score = ((i, j), score) if score < min_score else (min_idx, min_score)
+            else:
+                _, temp_score = self.minimaxMovePlayerAux(board, depth - 1)
+                if min_idx is None and min_score is None:
+                    min_idx, min_score = (i, j), temp_score
+                else:
+                    min_idx, min_score = ((i, j), temp_score) if temp_score < min_score else (min_idx, min_score)
+            score += 2
+            board[i][j] = 0
+        return min_idx, min_score
+
+    def get_move(self, board, time_limit) -> Move:
+        time_passed = 0
+        depth = 0
+        best_move = Move.UP # default
+        while time_passed * self.move_br < time_limit:
+            start = time.time()
+            best_move, _ = self.minimaxMovePlayerAux(board, depth)
+            end = time.time()
+            time_passed += end - start
+            depth += 1
+        return best_move
 
 
-    def minimaxMinAux(self, board):
-        optional_index = {}
-        is_done = True
-        for i in range(len(board)):
-            for j in range(len(board[0])):
-                if board[i][j] == 0:
-                    board[i][j] = 2
-                    is_done = False
-                    optional_index[i* (len(board[0]) )+j] = minimaxMaxAux(board)
-                    board[i][j] = 0
-        if is_done:
-            return board, True, -1
-        scores = [entry['score'] for entry in optional_index]
-        max_key = max(scores, key=scores.get)
-        return optional_index[max_key]
 
-    #def minimaxPlayerAux(self, board):
 
-    # TODO: add here helper functions in class, if needed
+
 
 
 class MiniMaxIndexPlayer(AbstractIndexPlayer):
@@ -169,13 +192,74 @@ class MiniMaxIndexPlayer(AbstractIndexPlayer):
     """
     def __init__(self):
         AbstractIndexPlayer.__init__(self)
-        # TODO: add here if needed
+        self.indices_br = 4 * 4
+
+    def getBoardScore(self, board):
+        score = 0
+        for i in range(c.GRID_LEN):
+            for j in range(c.GRID_LEN):
+                score += board[i][j]
+        return score
+
+    def availableIndices(self, board):
+        available_indices = []
+        for i in range(c.GRID_LEN):
+            for j in range(c.GRID_LEN):
+                if board[i][j] == 0:
+                    available_indices.append((i, j))
+        return available_indices
+
+    def minimaxMovePlayerAux(self, board, depth):
+        max_move, max_score = None, None
+        for m in Move:
+            new_board, done, score = commands[m](board)
+            if not done:
+                continue
+            if depth == 0:
+                if max_move is None and max_score is None:
+                    max_move, max_score = m, score
+                else:
+                    max_move, max_score = (m, score) if score > max_score else (max_move, max_score)
+            else:
+                _, temp_score = self.minimaxIndexPlayerAux(board, score, depth - 1)
+                if max_move is None and max_score is None:
+                    max_move, max_score = m, temp_score
+                else:
+                    max_move, max_score = (m, temp_score) if temp_score > max_score else (max_move, max_score)
+        return max_move, max_score
+
+    def minimaxIndexPlayerAux(self, board, score, depth):
+        min_idx, min_score = None, None
+        for i, j in self.availableIndices(board):
+            board[i][j] = 2
+            score += 2
+            if depth == 0:
+                if min_idx is None and min_score is None:
+                    min_idx, min_score = (i, j), score
+                else:
+                    min_idx, min_score = ((i, j), score) if score < min_score else (min_idx, min_score)
+            else:
+                _, temp_score = self.minimaxMovePlayerAux(board, depth - 1)
+                if min_idx is None and min_score is None:
+                    min_idx, min_score = (i, j), temp_score
+                else:
+                    min_idx, min_score = ((i, j), temp_score) if temp_score < min_score else (min_idx, min_score)
+            score += 2
+            board[i][j] = 0
+        return min_idx, min_score
 
     def get_indices(self, board, value, time_limit) -> (int, int):
-        # TODO: erase the following line and implement this function.
-        raise NotImplementedError
-
-    # TODO: add here helper functions in class, if needed
+        score = self.getBoardScore(board)
+        time_passed = 0
+        depth = 0
+        best_idx = None
+        while time_passed * self.indices_br < time_limit:
+            start = time.time()
+            best_idx, _ = self.minimaxIndexPlayerAux(board, score, depth)
+            end = time.time()
+            time_passed += end - start
+            depth += 1
+        return best_idx
 
 
 # part C
